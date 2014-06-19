@@ -1,0 +1,100 @@
+## You should create one R script called run_analysis.R that does the following. 
+## 1.Merges the training and the test sets to create one data set.
+## 2.Extracts only the measurements on the mean and standard deviation for each measurement. 
+## 3.Uses descriptive activity names to name the activities in the data set
+## 4.Appropriately labels the data set with descriptive variable names. 
+## 5.Creates a second, independent tidy data set with the average of each variable for each activity and each subject. 
+## Define set work directory
+setwd("C:/Users/cruzval/Desktop/coursera/curso_3")
+## install.packages("utils")
+## library(utils)
+## library(R.utils)
+## set URL and dowload zip filw to the set dirsctory
+fileUrl <- "https://d396qusza40orc.cloudfront.net/getdata%2Fprojectfiles%2FUCI%20HAR%20Dataset.zip" 
+download.file(fileUrl, destfile = "Dataset.zip")
+## unzip files and show the contect
+dataset.list <- unzip("Dataset.zip", files = NULL, unzip = "internal")
+## show the files unziped and save in setwd
+print(dataset.list) 
+
+## 1.-Merges the training and the test sets to create one data set
+## create data set of test
+## read table of set and labes then link data with lables
+## a) For TEST
+Dataset.test.set <- read.table("./UCI HAR Dataset/test/X_test.txt")
+Dataset.test.labes <- read.table("./UCI HAR Dataset/test/y_test.txt")
+Dataset.test.subject <- read.table("./UCI HAR Dataset/test/subject_test.txt")
+## deffine Dataset.test.labes like a table
+table(Dataset.test.labes)
+## b) For TRAIN
+Dataset.train.set <- read.table("./UCI HAR Dataset/train/X_train.txt")
+Dataset.train.lables <- read.table("./UCI HAR Dataset/train/y_train.txt")
+Dataset.train.subject <- read.table("./UCI HAR Dataset/train/subject_train.txt")
+## define Dataset.train.lables like a table
+table(Dataset.train.subject)
+## At this point in time data frames are separate (set,lables & subject), we need create grups (concatenate) 
+## in regards to analyse
+## a) concatenate sets (test & train). Data.set is the result of merage test & test frame.
+Dataset.set <- rbind(Dataset.test.set, Dataset.train.set)
+## b) concatenate lables
+Dataset.lables <- rbind(Dataset.test.labes, Dataset.train.lables)
+## c) concatenate subject
+Dataset.subject <- rbind(Dataset.test.subject, Dataset.train.subject)
+## Add names tag to the first column in data set (lables & subject)
+names(Dataset.lables) <- "lable"
+names(Dataset.subject) <- "subject"
+## 
+## 2.Extracts only the measurements on the mean and standard deviation for each measurement.
+## features.txt is the file that contain mesurements of mean and standard deviation so 
+## the task is create a variable called features with mean and standar deviation
+## Read features file and call "features"
+features <- read.table("./UCI HAR Dataset/features.txt")
+## extract all rows that contain mean or standard deviation values
+mean.stdv <- grep("mean\\(\\)|std\\(\\)", features[,2])
+## Remove black spaces "_"
+mean.stdv.cleaned <- gsub("\\(\\)", "", features[mean.stdv, 2])
+mean.stdv.cleaned <- gsub("_", "", mean.stdv.cleaned)
+print(mean.stdv.cleaned)
+## 
+## 3.Uses descriptive activity names to name the activities in the data set
+## Read file activity_lables.txt and create a vector
+activity.names <- read.table("./UCI HAR Dataset/activity_labels.txt")
+activity.names[,2] <- tolower(gsub("_", " ", activity.names[,2]))
+substr(activity.names[2,2], 8, 8) <- tolower(substr(activity.names[2,2], 8, 8))
+substr(activity.names[3,2], 8, 8) <- tolower(substr(activity.names[3,2], 8, 8))
+## exchange numbers for activity lables
+activity.lable <- activity.names[Dataset.lables[,1],2]
+Dataset.lables[,1] <- activity.lable
+## Add a tag (activity) into the fir row of coloumn Dataset.lables
+names(Dataset.lables) <- "activity"
+## 
+## 4.Appropriately labels the data set with descriptive variable names.
+Dataset.set.names <- Dataset.set[, mean.stdv]
+names(Dataset.set.names) <- mean.stdv.cleaned
+## Create one data freme with all information (Dataset.set.names, Dataset.subject, Dataset.lables)
+new.frame <- cbind(Dataset.subject, Dataset.lables, Dataset.set.names)
+write.table(new.frame, "merged_data.txt")
+## save and call new frame in setwd like "merged_data.txt"
+## 
+##5.Creates a second, independent tidy data set with the average of each variable for each activity and each subject.
+subject.size <- length(table(Dataset.test.subject))
+activity.size <- dim(activity.names)[1]
+col.size <- dim(new.frame)[2]
+matrix <- matrix(NA, nrow=subject.size*activity.size, ncol=col.size)                  
+Data.frame.matrix <- as.data.frame(matrix)                     
+colnames(matrix) <- colnames(new.frame)
+## Define boudary conditions for subject and activitys
+row <- 1
+for(i in 1:subject.size) {
+  for(j in 1:activity.size) {
+    matrix[row, 1] <- sort(unique(Dataset.test.subject)[, 1])[i]
+    matrix[row, 2] <- activity.names[j, 2]
+    bool1 <- i == new.frame$subject
+    bool2 <- activity.names[j, 2] == new.frame$activity
+    matrix[row, 3:col.size] <- colMeans(new.frame[bool1&bool2, 3:col.size])
+    row <- row + 1
+  }
+}
+head(matrix)
+## save average results in file called "average.activitys.txt" 
+write.table(matrix, "average.activitys.txt") 
